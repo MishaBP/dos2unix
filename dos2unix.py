@@ -1,36 +1,48 @@
-#!/usr/bin/python
-
-import argparse
-
+#!/usr/bin/env python3
 """
-dos2unix.py dos to unix or unix to dos file converter
+Умный конвертер DOS-to-Unix с автоопределением кодировки
+Usage: dos2unix.py <input> <output>
 """
+import sys
+import chardet
 
+def detect_encoding(file_path):
+    with open(file_path, 'rb') as f:
+        raw_data = f.read(10000)  # Анализируем первые 10КБ для определения кодировки
+        result = chardet.detect(raw_data)
+        return result['encoding']
 
-def dos2unix(name):
-    data = open(name, 'r').read()
-    open(name, 'w').write(data.replace('\r\n', '\n'))
+def convert_file(input_path, output_path):
+    try:
+        # Определяем кодировку
+        encoding = detect_encoding(input_path)
+        if not encoding:
+            encoding = 'utf-8'  # По умолчанию, если не удалось определить
+        
+        print(f"Определена кодировка: {encoding}")
 
+        # Конвертируем построчно с учетом кодировки
+        with open(input_path, 'r', encoding=encoding, newline='') as infile, \
+             open(output_path, 'w', encoding='utf-8', newline='\n') as outfile:
+            
+            crlf_count = 0
+            line_count = 0
+            
+            for line in infile:
+                line_count += 1
+                if line.endswith('\r\n'):
+                    crlf_count += 1
+                outfile.write(line.rstrip('\r\n') + '\n')
+            
+            print(f"Обработано строк: {line_count}")
+            print(f"Заменено CRLF: {crlf_count}")
+            print(f"Файл сохранен в UTF-8 с Unix-переносами строк")
 
-def unix2dos(name):
-    data = open(name, 'r').read()
-    open(name, 'w').write(data.replace('\n', '\r\n'))
+    except Exception as e:
+        sys.exit(f"Ошибка: {str(e)}")
 
-
-def cli_controller():
-    parser = argparse.ArgumentParser(description='Dos to Unix file converter')
-    parser.add_argument('file',
-                        help="Path to file to be converted")
-    parser.add_argument('-d',
-                        '--unix2dos',
-                        action='store_true',
-                        help='Unix to Dos convection')
-    arguments = parser.parse_args()
-    if arguments.unix2dos:
-        unix2dos(arguments.file)
-    else:
-        dos2unix(arguments.file)
-
-
-if __name__ == '__main__':
-    cli_controller()
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        sys.exit(__doc__)
+    
+    convert_file(sys.argv[1], sys.argv[2])
